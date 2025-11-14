@@ -1,6 +1,6 @@
 
 # **CaskLens**
-<img src = "casklens_opt.jpg">
+<img src = "assets/casklens_opt.jpg">
 
 ## What is CaskLens?
 CaskLens is a modern browser-based tool that fetches and parses Homebrew Cask metadata directly from official Homebrew sources. It helps developers and power users inspect application details with clarity and speed — all without using a single terminal command.
