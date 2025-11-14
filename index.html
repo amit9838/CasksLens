@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<!-- Fixed: ensure React/ReactDOM are available before running app by using `defer` and wrapping mount in window.load -->
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Homebrew Cask Explorer</title>
+
+    <!-- Use defer so these external libs load before the inline app runs -->
+    <script defer src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script defer src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script defer src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+    <style>
+        body {
+            margin: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            transition: background 0.3s, color 0.3s;
+        }
+
+        body.light {
+            background: #f4f7f6;
+            color: #333;
+        }
+
+        body.dark {
+            background: #111;
+            color: #eee;
+        }
+
+        #root {
+            max-width: 1300px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .links:link {
+            color: #1a608e;
+            text-decoration: underline;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: var(--header-bg, #fff);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .search-bar {
+            padding: 10px;
+            width: 280px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            font-size: 16px;
+        }
+
+        .theme-btn {
+            padding: 8px 14px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-size: 15px;
+            background: #3498db;
+            color: white;
+            margin-left: 8px;
+        }
+
+        /* Footer */
+        .footer {
+            margin-top: 40px;
+            padding: 25px;
+            text-align: center;
+            border-top: 1px solid #4443;
+        }
+
+        .footer a {
+            color: #3498db;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        /* Popup */
+        .popup-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(3px);
+        }
+
+        .popup-container {
+            background: #fff;
+            padding: 25px;
+            border-radius: 12px;
+            width: 400px;
+            max-width: 90%;
+            max-height: 70vh;
+            overflow-y: scroll;
+        }
+
+        .popup-content {
+            text-wrap: wrap;
+            overflow-wrap: break-word;
+            color: var(--input-text);
+            /* overflow: scroll; */
+        }
+
+        .cask-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .cask-card {
+            background-color: var(--card-bg, #ffffff);
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 6px 20px rgba(12, 12, 12, 0.04);
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 12px
+        }
+
+        .cask-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            /* color: #fff; */
+            font-size: 2rem;
+            /* background: #1a608e */
+        }
+
+        .pagination-controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 30px;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .page-input {
+            padding: 8px;
+            width: 70px;
+            border-radius: 6px;
+            border: 1px solid #666;
+            margin-left: 10px;
+        }
+
+        .page-size-select {
+            padding: 8px;
+            border-radius: 6px;
+            margin-left: 10px;
+        }
+
+        .copy-btn {
+            padding: 8px 12px;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+        }
+
+        .view-json-link {
+            font-size: .9rem;
+            cursor: pointer;
+        }
+
+        .view-json-link:hover {
+            text-decoration: underline;
+
+        }
+
+        input {
+            background: var(--input-bg);
+            color: var(--input-text);
+            border: 1px solid var(--header-bg);
+        }
+
+
+        .pagination-btn {
+            background-color: #1a608e;
+            border: 0;
+            padding: .5rem;
+            color: white;
+            border-radius: 0.3rem;
+        }
+
+
+
+        /* Theme variables */
+        body.light {
+            --header-bg: #ffffff;
+            --card-bg: #ffffff;
+            --popup-bg: #ffffff;
+            --input-bg: #ffffff;
+            --input-text: #1e1e1e;
+        }
+
+        body.dark {
+            --header-bg: #1a1a1a;
+            --card-bg: #1a1a1a;
+            --popup-bg: #222;
+            --input-bg: #1e1e1e;
+            --input-text: #bebebe;
+        }
+
+        /* Apply popup theme */
+        .popup-container {
+            background: var(--popup-bg) !important;
+            color: var(--text, inherit);
+        }
+    </style>
+</head>
+
+<body class="light">
+    <div id="root"></div>
+
+    <!-- App script uses type text/babel so Babel will transpile JSX. We also wrap the app start in window.load to ensure React & ReactDOM are present. -->
+    <script type="text/babel">
+        // Wait until the whole window loads (including deferred external scripts) before running the app.
+        window.addEventListener('load', () => {
+            const { useState, useEffect } = React;
+            const API_URL = "https://formulae.brew.sh/api/cask.json";
+
+            function Popup({ onClose, html_content }) {
+                return (
+                    <div className="popup-overlay" onClick={onClose}>
+                        <div className="popup-container" onClick={(e) => e.stopPropagation()}>
+                            <pre className="popup-content">{html_content} </pre>
+                            <div style={{ textAlign: 'right' }}>
+                                <button className="pagination-btn" onClick={onClose} style={{ padding: '8px 12px', borderRadius: 8 }}>Close</button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            function CaskCard({ cask, invokePopup }) {
+                const [isCopied, setIsCopied] = useState(false);
+                const cmd = `brew install --cask ${cask.full_token}`;
+                const mainName = (cask.name && cask.name[0]) ? cask.name[0] : cask.full_token;
+
+                function formatValue(value, indent = 0) {
+                    const pad = "  ".repeat(indent);
+
+                    if (value === null || value === undefined) return String(value);
+
+                    if (typeof value === "object") {
+                        if (Array.isArray(value)) {
+                            if (value.length === 0) return "[]";
+                            return "[\n" + value.map(v => pad + "  " + formatValue(v, indent + 1)).join(",\n") + "\n" + pad + "]";
+                        }
+
+                        // plain object
+                        const entries = Object.entries(value);
+                        if (entries.length === 0) return "{}";
+
+                        return "{\n" +
+                            entries
+                                .map(([k, v]) => `${pad}  ${k}: ${formatValue(v, indent + 1)}`)
+                                .join("\n") +
+                            "\n" + pad + "}";
+                    }
+
+                    return String(value);
+                }
+
+                return (
+                    <div className="cask-card">
+                        <div>
+                            <div className="card-header">
+                                <img
+                                    loading="lazy"
+                                    className="cask-icon"
+                                    src={`https://www.google.com/s2/favicons?domain=${cask.homepage}&sz=64`}
+                                    onError={(e) => (e.target.src = fallbackIcon)}
+                                    alt={mainName[0] ? mainName[0].toUpperCase() : '?'}
+                                />
+                                <div>
+                                    <h3 style={{ margin: 0 }}>{mainName}</h3>
+                                    <div style={{ fontSize: 12, color: 'gray' }}>{cask.full_token}</div>
+                                </div>
+                            </div>
+
+                            <p style={{ marginTop: 12, opacity: 0.8, fontSize: "0.95rem" }}>{cask.desc}</p>
+                            <p style={{ marginTop: 6, fontSize: 13, opacity: 0.7, padding: 0 }}><strong><span style={{ color: "red" }}>{cask.deprecated ? "Depricated | " : ""}</span> Version:</strong> {cask.version}</p>
+
+                            <div style={{ marginTop: 0, paddingTop: 0 }}>
+                                <a href={cask.homepage} className="links" style={{ fontSize: ".9rem" }} target="_blank" rel="noopener noreferrer">Website</a>
+                                <span> | </span>
+                                <span className="view-json-link" onClick={() => invokePopup(Object.entries(cask)
+                                    .map(([key, value]) => `- ${key} : ${formatValue(value)}`)
+                                    .join("\n"))} >View Json
+                                </span>
+                            </div>
+                        </div>
+
+                        <div style={{ marginTop: 12 }}>
+                            <label style={{ display: 'block', fontSize: 12, fontWeight: 600, marginBottom: 6 }}>Terminal Command:</label>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <input readOnly value={cmd} style={{ flex: 1, fontFamily: 'monospace', padding: 8, borderRadius: 6, border: '1px solid #ddd' }} onClick={(e) => e.target.select()} />
+                                <button className="copy-btn" onClick={() => { navigator.clipboard.writeText(cmd).then(() => { setIsCopied(true); setTimeout(() => setIsCopied(false), 1500) }).catch(() => { }) }} style={{ background: isCopied ? '#2ecc71' : '#1a608e', color: '#fff' }}>
+                                    {isCopied ? 'Copied!' : 'Copy'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            function App() {
+
+                const [allCasks, setAllCasks] = useState([]);
+                const [search, setSearch] = useState("");
+                const [page, setPage] = useState(1);
+                const [pageSize, setPageSize] = useState(12);
+                const [popup, setPopup] = useState(false);
+                const [popupContent, setPopupContent] = useState("");
+                const [theme, setTheme] = useState("light");
+                const [loading, setLoading] = useState(true);
+                const [error, setError] = useState(null);
+
+                useEffect(() => {
+                    const fetchData = async () => {
+                        try {
+                            setLoading(true);
+                            const res = await fetch(API_URL);
+                            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                            const data = await res.json();
+                            setAllCasks(data || []);
+                        } catch (err) {
+                            setError(err.message || String(err));
+                        } finally {
+                            setLoading(false);
+                        }
+                    };
+                    fetchData();
+                }, []);
+
+                const popUpContentInitial = `
+- Use Homebrew Cask to install macOS apps.
+- Installation: brew install --cask <name>
+                            `
+
+                useEffect(() => {
+                    document.body.className = theme;
+                    setPopupContent(popUpContentInitial);
+                }, [theme]);
+
+                const filtered = allCasks.filter(c => {
+                    const s = (search || '').toLowerCase();
+                    return !s || (
+                        (c.full_token && c.full_token.toLowerCase().includes(s)) ||
+                        (c.desc && c.desc.toLowerCase().includes(s)) ||
+                        (c.name && c.name.some(n => n.toLowerCase().includes(s)))
+                    );
+                });
+
+                const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+                const normalizedPage = Math.min(Math.max(1, page), totalPages);
+                const current = filtered.slice((normalizedPage - 1) * pageSize, normalizedPage * pageSize);
+
+                function invokePopup(content) {
+                    setPopup(true);
+                    if (content) {
+                        setPopupContent(content);
+                    }
+                }
+
+                // handlers
+                const goToPage = (p) => setPage(Math.min(Math.max(1, Number(p) || 1), totalPages));
+
+                return (
+                    <div>
+                        <div className="header">
+                            <div>
+                                <h2 style={{ margin: 0 }}><span style={{ fontSize: "1.3em" }}>🍺</span> CaskLens </h2>
+                            </div>
+
+                            <input
+                                aria-label="Search casks"
+                                className="search-bar"
+                                placeholder="Search"
+                                value={search}
+                                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                            />
+
+                            <div style={{ display: 'flex', alignItems: 'center' }}>
+                                <button className="theme-btn" onClick={() => setTheme(t => t === 'light' ? 'dark' : 'light')}>🌗</button>
+                                <button className="theme-btn" onClick={() => invokePopup(popUpContentInitial)}>?</button>
+                            </div>
+                        </div>
+
+                        {loading ? (
+                            <div style={{ padding: 40, textAlign: 'center' }}>Loading casks...</div>
+                        ) : error ? (
+                            <div style={{ padding: 40, color: 'crimson', textAlign: 'center' }}>Error: {error}</div>
+                        ) : (
+                            <>
+                                <div className="cask-grid">
+                                    {current.map(c => <CaskCard key={c.full_token} cask={c} invokePopup={invokePopup} />)}
+                                </div>
+
+                                {filtered.length === 0 && <div style={{ padding: 30, textAlign: 'center' }}>No casks found for "{search}"</div>}
+
+                                <div className="pagination-controls">
+                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                        <button className="pagination-btn" onClick={() => goToPage(normalizedPage - 1)} disabled={normalizedPage === 1}>Prev</button>
+                                        <span>Page <input className="page-input" type="number" value={normalizedPage} min="1" max={totalPages} onChange={(e) => goToPage(e.target.value)} /> of {totalPages}</span>
+                                        <button className="pagination-btn" onClick={() => goToPage(normalizedPage + 1)} disabled={normalizedPage === totalPages}>Next</button>
+                                    </div>
+
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                        <label style={{ fontSize: 13 }}>Items per page</label>
+                                        <select className="page-size-select pagination-btn" value={pageSize} onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}>
+                                            <option value={6}>6</option>
+                                            <option value={12}>12</option>
+                                            <option value={24}>24</option>
+                                            <option value={48}>48</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <div className="footer">
+                                    <p style={{ margin: 0 }}>CaskLens • Browse macOS apps packaged as casks</p>
+                                    <p style={{ margin: '8px 0 0' }}>
+                                        <a href="https://github.com/amit9838" target="_blank" rel="noopener noreferrer">🔗 GitHub: amit9838</a>
+                                    </p>
+                                </div>
+                            </>
+                        )}
+
+                        {popup && <Popup html_content={popupContent} onClose={() => setPopup(false)} />}
+                    </div>
+                );
+            }
+
+            // mount
+            const rootEl = document.getElementById('root');
+            if (!rootEl) {
+                console.error('Root element not found');
+                return;
+            }
+
+            ReactDOM.createRoot(rootEl).render(React.createElement(App));
+        });
+    </script>
+</body>
+
+</html>
